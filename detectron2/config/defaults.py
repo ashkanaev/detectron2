@@ -28,12 +28,12 @@ _C.MODEL.KEYPOINT_ON = False
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN"
 
-# Path (possibly with schema like catalog:// or detectron2://) to a checkpoint file
-# to be loaded to the model. You can find available models in the model zoo.
+# If the WEIGHT starts with a catalog://, like :R-50, the code will look for
+# the path in ModelCatalog. Else, it will use it as the specified absolute
+# path
 _C.MODEL.WEIGHTS = ""
 
-# Values to be used for image normalization (BGR order, since INPUT.FORMAT defaults to BGR).
-# To train on images of different number of channels, just set different mean & std.
+# Values to be used for image normalization (BGR order)
 # Default values are the mean pixel value from ImageNet: [103.53, 116.28, 123.675]
 _C.MODEL.PIXEL_MEAN = [103.530, 116.280, 123.675]
 # When using pre-trained models in Detectron1 or any MSRA models,
@@ -468,6 +468,7 @@ _C.MODEL.RESNETS.RES5_DILATION = 1
 # Output width of res2. Scaling this parameters will scale the width of all 1x1 convs in ResNet
 _C.MODEL.RESNETS.RES2_OUT_CHANNELS = 256
 _C.MODEL.RESNETS.STEM_OUT_CHANNELS = 64
+_C.MODEL.RESNETS.CHANNELS_PER_STAGE = []
 
 # Apply Deformable Convolution in stages
 # Specify if apply deform_conv on Res2, Res3, Res4, Res5
