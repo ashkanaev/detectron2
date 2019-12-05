@@ -480,6 +480,8 @@ _C.SOLVER = CN()
 # See detectron2/solver/build.py for LR scheduler options
 _C.SOLVER.LR_SCHEDULER_NAME = "WarmupMultiStepLR"
 
+_C.SOLVER.START_ITER = -1
+
 _C.SOLVER.MAX_ITER = 40000
 
 _C.SOLVER.BASE_LR = 0.001
@@ -547,7 +549,7 @@ _C.OUTPUT_DIR = "./output"
 # Set seed to negative to fully randomize everything.
 # Set seed to positive to use a fixed seed. Note that a fixed seed does not
 # guarantee fully deterministic behavior.
-_C.SEED = -1
+_C.SEED = 1
 # Benchmark different cudnn algorithms. It has large overhead for about 10k
 # iterations. It usually hurts total time, but can benefit for certain models.
 _C.CUDNN_BENCHMARK = False

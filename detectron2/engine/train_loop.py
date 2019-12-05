@@ -156,6 +156,11 @@ class TrainerBase:
         raise NotImplementedError
 
 
+def freeze_weights(model):
+    for p in model.parameters():
+        p.requires_grad = False
+
+
 class SimpleTrainer(TrainerBase):
     """
     A simple trainer for the most common type of task:
@@ -188,6 +193,11 @@ class SimpleTrainer(TrainerBase):
         like evaluation during training, you can overwrite its train() method.
         """
         model.train()
+        # freeze_weights(model.backbone)
+        # freeze_weights(model.proposal_generator)
+        # freeze_weights(model.roi_heads.box_head)
+        # # freeze_weights(model.roi_heads.box_pooler)
+        # freeze_weights(model.roi_heads.box_predictor)
 
         self.model = model
         self.data_loader = data_loader
@@ -211,6 +221,7 @@ class SimpleTrainer(TrainerBase):
         """
         loss_dict = self.model(data)
         losses = sum(loss for loss in loss_dict.values())
+        # losses = loss_dict['loss_keypoint']
         self._detect_anomaly(losses, loss_dict)
 
         metrics_dict = loss_dict

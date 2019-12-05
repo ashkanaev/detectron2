@@ -1,8 +1,23 @@
 _BASE_: "Base-Keypoint-RCNN-FPN.yaml"
 MODEL:
-  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  WEIGHTS: "/home/ashkanaev/models/faster-rcnn-fpn/model_0234999.pth"
   RESNETS:
     DEPTH: 50
+    CHANNELS_PER_STAGE: [64, 128, 256, 256, 1024]
+  ROI_HEADS:
+    NUM_CLASSES: 80
+  ROI_KEYPOINT_HEAD:
+    MIN_KEYPOINTS_PER_IMAGE: 1
+
+
+DATALOADER:
+  NUM_WORKERS: 4
+
+
 SOLVER:
+  BASE_LR: 0.08
   STEPS: (210000, 250000)
   MAX_ITER: 270000
+  START_ITER: 0
+  CHECKPOINT_PERIOD: 50000
+  IMS_PER_BATCH: 4
