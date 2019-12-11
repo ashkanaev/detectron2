@@ -5,9 +5,6 @@ from typing import Dict
 import torch
 from torch import nn
 
-import cv2
-cv2.setNumThreads(0)
-
 from detectron2.layers import ShapeSpec
 from detectron2.structures import Boxes, Instances, pairwise_iou
 from detectron2.utils.events import get_event_storage
@@ -59,7 +56,7 @@ def select_foreground_proposals(proposals, bg_label):
     Returns:
         list[Instances]: N Instances, each contains only the selected foreground instances.
         list[Tensor]: N boolean vector, correspond to the selection mask of
-            each Instances object. True for selected instances.
+            each instance. True for selected instances.
     """
     assert isinstance(proposals, (list, tuple))
     assert isinstance(proposals[0], Instances)
@@ -72,7 +69,6 @@ def select_foreground_proposals(proposals, bg_label):
         fg_idxs = fg_selection_mask.nonzero().squeeze(1)
         fg_proposals.append(proposals_per_image[fg_idxs])
         fg_selection_masks.append(fg_selection_mask)
-
     return fg_proposals, fg_selection_masks
 
 
@@ -554,25 +550,22 @@ class StandardROIHeads(ROIHeads):
         """
         See :class:`ROIHeads.forward`.
         """
-        # image2show = images[0].cpu().numpy()
-        # image2show = np.transpose(image2show, (1, 2, 0))
-        # image2show = np.clip(image2show, 0, 255)
-        # cv2.imshow('test', image2show.astype('uint8'))
-        #
-        # cv2.waitKey()
         del images
         if self.training:
             proposals = self.label_and_sample_proposals(proposals, targets)
         del targets
-        # for rec in proposals.
+
         features_list = [features[f] for f in self.in_features]
 
         if self.training:
-            losses = self._forward_box(features_list, proposals)
+            losses = {}
+            if not hasattr(proposals[0], 'gt_keypoints'):
+                losses = self._forward_box(features_list, proposals)
             # During training the proposals used by the box head are
             # used by the mask, keypoint (and densepose) heads.
             losses.update(self._forward_mask(features_list, proposals))
-            losses.update(self._forward_keypoint(features_list, proposals))
+            if hasattr(proposals[0], 'gt_keypoints'):
+                losses.update(self._forward_keypoint(features_list, proposals))
             return proposals, losses
         else:
             pred_instances = self._forward_box(features_list, proposals)
@@ -693,9 +686,6 @@ class StandardROIHeads(ROIHeads):
         num_images = len(instances)
 
         if self.training:
-            # for ints in instances:
-            #     bbox = ints.proposal_boxes.cpu().numpy()
-            #     print(bbox.shape)
             # The loss is defined on positive proposals with at >=1 visible keypoints.
             proposals, _ = select_foreground_proposals(instances, self.num_classes)
             proposals = select_proposals_with_visible_keypoints(proposals)

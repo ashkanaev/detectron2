@@ -1,5 +1,4 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-import copy
 import numpy as np
 from enum import Enum, unique
 from typing import Iterator, List, Tuple, Union
@@ -50,7 +49,7 @@ class BoxMode(Enum):
                 4,
             ), "BoxMode.convert takes either a 4-tuple/list or a Nx4 array/tensor"
         else:
-            arr = copy.deepcopy(box)  # avoid modifying the input box
+            arr = box
 
         assert to_mode.value < 2 and from_mode.value < 2, "Relative mode not yet supported!"
 

@@ -2,7 +2,7 @@ _BASE_: "../Base-RCNN-FPN.yaml"
 MODEL:
   KEYPOINT_ON: True
   ROI_HEADS:
-    NUM_CLASSES: 1
+    NUM_CLASSES: 80
   ROI_BOX_HEAD:
     SMOOTH_L1_BETA: 0.5  # Keypoint AP degrades (though box AP improves) when using plain L1 loss
   RPN:

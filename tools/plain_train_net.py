@@ -56,6 +56,16 @@ from detectron2.utils.events import (
 logger = logging.getLogger("detectron2")
 
 
+def freeze_params(model):
+    for param in model.parameters():
+        param.requires_grad = False
+
+
+def unfreeze_params(model):
+    for param in model.parameters():
+        param.requires_grad = True
+
+
 def get_evaluator(cfg, dataset_name, output_folder=None):
     """
     Create evaluator(s) for a given dataset.
@@ -99,9 +109,9 @@ def get_evaluator(cfg, dataset_name, output_folder=None):
     return DatasetEvaluators(evaluator_list)
 
 
-def do_test(cfg, model):
+def do_test(cfg,  model):
     results = OrderedDict()
-    for dataset_name in cfg.DATASETS.TEST:
+    for idx, dataset_name in enumerate(cfg.DATASETS.TEST):
         data_loader = build_detection_test_loader(cfg, dataset_name)
         evaluator = get_evaluator(
             cfg, dataset_name, os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
@@ -116,7 +126,17 @@ def do_test(cfg, model):
     return results
 
 
-def do_train(cfg, model, resume=False):
+def unite_loss_dicts(losses):
+    retval = losses[0]
+    for key, val in losses[1].items():
+        if key in retval:
+            retval[key] += losses[1][key]
+        else:
+            retval[key] = val
+    return retval
+
+
+def do_train(cfg, model, resume=False, cfg_det=None):
     model.train()
     optimizer = build_optimizer(cfg, model)
     scheduler = build_lr_scheduler(cfg, optimizer)
@@ -146,24 +166,58 @@ def do_train(cfg, model, resume=False):
     # compared to "train_net.py", we do not support accurate timing and
     # precise BN here, because they are not trivial to implement
     data_loader = build_detection_train_loader(cfg)
+    data_loader_det = build_detection_train_loader(cfg_det)
+    data_loader_iter = iter(data_loader)
+    data_loader_det_iter = iter(data_loader_det)
+
+    train_det = True
     logger.info("Starting training from iteration {}".format(start_iter))
     with EventStorage(start_iter) as storage:
-        for data, iteration in zip(data_loader, range(start_iter, max_iter)):
+        for iteration in range(start_iter, max_iter):
             iteration = iteration + 1
             storage.step()
-
-            loss_dict = model(data)
-            losses = sum(loss for loss in loss_dict.values())
-            assert torch.isfinite(losses).all(), loss_dict
-
-            loss_dict_reduced = {k: v.item() for k, v in comm.reduce_dict(loss_dict).items()}
-            losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-            if comm.is_main_process():
-                storage.put_scalars(total_loss=losses_reduced, **loss_dict_reduced)
-
             optimizer.zero_grad()
-            losses.backward()
-            optimizer.step()
+            losses_to_log = []
+            for _ in range(2):
+                if train_det:
+                    unfreeze_params(model.roi_heads.box_predictor)
+                    unfreeze_params(model.roi_heads.box_head)
+                    freeze_params(model.roi_heads.keypoint_head)
+                    try:
+                        data = data_loader_det_iter.next()
+                    except:
+                        data_loader_det_iter = iter(data_loader)
+                        data = data_loader_det_iter.next()
+
+                    train_det = not train_det
+                else:
+                    unfreeze_params(model.roi_heads.keypoint_head)
+                    freeze_params(model.roi_heads.box_predictor)
+                    freeze_params(model.roi_heads.box_head)
+                    try:
+                        data = data_loader_iter.next()
+                    except:
+                        data_loader_iter = iter(data_loader)
+                        data = data_loader_iter.next()
+
+                    train_det = not train_det
+
+                loss_dict = model(data)
+
+                losses = sum(loss for loss in loss_dict.values())
+                assert torch.isfinite(losses).all(), loss_dict
+
+                loss_dict_reduced = {k: v.item() for k, v in comm.reduce_dict(loss_dict).items()}
+                losses_to_log.append(loss_dict_reduced)
+                losses.backward()
+                optimizer.step()
+            losses_dict_united = unite_loss_dicts(losses_to_log)
+
+            if comm.is_main_process():
+                losses_reduced = sum(loss for loss in losses_dict_united.values())
+                storage.put_scalars(total_loss=losses_reduced,  **losses_dict_united)
+
+
             storage.put_scalar("lr", optimizer.param_groups[0]["lr"], smoothing_hint=False)
             scheduler.step()
 
@@ -182,6 +236,8 @@ def do_train(cfg, model, resume=False):
             periodic_checkpointer.step(iteration)
 
 
+
+
 def setup(args):
     """
     Create configs and perform basic setups.
@@ -196,8 +252,19 @@ def setup(args):
     return cfg
 
 
+def setup_det(config_file):
+    """
+    Create configs and perform basic setups.
+    """
+    cfg = get_cfg()
+    cfg.merge_from_file(config_file)
+    cfg.freeze()
+    return cfg
+
+
 def main(args):
     cfg = setup(args)
+    cfg_det = setup_det('configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml')
 
     model = build_model(cfg)
     logger.info("Model:\n{}".format(model))
@@ -213,7 +280,7 @@ def main(args):
             model, device_ids=[comm.get_local_rank()], broadcast_buffers=False
         )
 
-    do_train(cfg, model)
+    do_train(cfg, model, cfg_det=cfg_det)
     return do_test(cfg, model)
 
 

@@ -439,6 +439,8 @@ def build_resnet_backbone(cfg, input_shape):
     deform_modulated    = cfg.MODEL.RESNETS.DEFORM_MODULATED
     deform_num_groups   = cfg.MODEL.RESNETS.DEFORM_NUM_GROUPS
 
+    channels_per_stage = None
+
     if cfg.MODEL.RESNETS.CHANNELS_PER_STAGE:
         channels_per_stage = cfg.MODEL.RESNETS.CHANNELS_PER_STAGE
 
@@ -476,8 +478,9 @@ def build_resnet_backbone(cfg, input_shape):
             stage_kargs["block_class"] = BottleneckBlock
         blocks = make_stage(**stage_kargs)
 
-        if not channels_per_stage[idx + 1] == channels_per_stage[idx]:
-            bottleneck_channels *= 2
+        if channels_per_stage:
+            if not channels_per_stage[idx + 1] == channels_per_stage[idx]:
+                bottleneck_channels *= 2
 
         in_channels = out_channels
         out_channels = channels_per_stage[idx + 1] * 4

@@ -135,10 +135,6 @@ class DefaultPredictor:
     The predictor takes an BGR image, resizes it to the specified resolution,
     runs the model and produces a dict of predictions.
 
-    This predictor takes care of model loading and input preprocessing for you.
-    If you'd like to do anything more fancy, please refer to its source code
-    as examples to build and use the model manually.
-
     Attributes:
         metadata (Metadata): the metadata of the underlying dataset, obtained from
             cfg.DATASETS.TEST.
@@ -419,10 +415,7 @@ class DefaultTrainer(SimpleTrainer):
 
         It is not implemented by default.
         """
-        raise NotImplementedError(
-            "Please either implement `build_evaluator()` in subclasses, or pass "
-            "your evaluator as arguments to `DefaultTrainer.test()`."
-        )
+        raise NotImplementedError
 
     @classmethod
     def test(cls, cfg, model, evaluators=None):
@@ -450,18 +443,11 @@ class DefaultTrainer(SimpleTrainer):
             data_loader = cls.build_test_loader(cfg, dataset_name)
             # When evaluators are passed in as arguments,
             # implicitly assume that evaluators can be created before data_loader.
-            if evaluators is not None:
-                evaluator = evaluators[idx]
-            else:
-                try:
-                    evaluator = cls.build_evaluator(cfg, dataset_name)
-                except NotImplementedError:
-                    logger.warn(
-                        "No evaluator found. Use `DefaultTrainer.test(evaluators=)`, "
-                        "or implement its `build_evaluator` method."
-                    )
-                    results[dataset_name] = {}
-                    continue
+            evaluator = (
+                evaluators[idx]
+                if evaluators is not None
+                else cls.build_evaluator(cfg, dataset_name)
+            )
             results_i = inference_on_dataset(model, data_loader, evaluator)
             results[dataset_name] = results_i
             if comm.is_main_process():

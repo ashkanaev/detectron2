@@ -1,6 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import copy
 import logging
+
 import numpy as np
 import torch
 from fvcore.common.file_io import PathManager

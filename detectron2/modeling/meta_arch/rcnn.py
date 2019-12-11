@@ -78,8 +78,12 @@ class GeneralizedRCNN(nn.Module):
 
         features = self.backbone(images.tensor)
 
-        if self.proposal_generator:
+        if self.proposal_generator and not hasattr(gt_instances[0], 'gt_keypoints'):
             proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+
+        elif self.proposal_generator and hasattr(gt_instances[0], 'gt_keypoints'):
+            proposals, _ = self.proposal_generator(images, features, gt_instances)
+            proposal_losses = {}
         else:
             assert "proposals" in batched_inputs[0]
             proposals = [x["proposals"].to(self.device) for x in batched_inputs]
