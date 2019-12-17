@@ -140,6 +140,17 @@ COCO_CATEGORIES = [
     {"color": [250, 141, 255], "isthing": 0, "id": 200, "name": "rug-merged"},
 ]
 
+
+COCO_SHORT_CATEGORIES = [
+    {"color": [220, 20, 60], "isthing": 1, "id": 1, "name": "person"},
+    {"color": [119, 11, 32], "isthing": 1, "id": 2, "name": "bicycle"},
+    {"color": [0, 0, 142], "isthing": 1, "id": 3, "name": "car"},
+    {"color": [0, 0, 230], "isthing": 1, "id": 4, "name": "motorcycle"},
+    {"color": [0, 60, 100], "isthing": 1, "id": 6, "name": "bus"},
+    {"color": [250, 170, 30], "isthing": 1, "id": 10, "name": "traffic light"},
+]
+
+
 # fmt: off
 COCO_PERSON_KEYPOINT_NAMES = (
     "nose",
@@ -188,13 +199,13 @@ KEYPOINT_CONNECTION_RULES = [
 ]
 
 
-def _get_coco_instances_meta():
-    thing_ids = [k["id"] for k in COCO_CATEGORIES if k["isthing"] == 1]
-    thing_colors = [k["color"] for k in COCO_CATEGORIES if k["isthing"] == 1]
-    assert len(thing_ids) == 80, len(thing_ids)
+def _get_coco_instances_meta(catt=COCO_CATEGORIES):
+    thing_ids = [k["id"] for k in catt if k["isthing"] == 1]
+    thing_colors = [k["color"] for k in catt if k["isthing"] == 1]
+    # assert len(thing_ids) == 6, len(thing_ids)
     # Mapping from the incontiguous COCO category id to an id in [0, 79]
     thing_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(thing_ids)}
-    thing_classes = [k["name"] for k in COCO_CATEGORIES if k["isthing"] == 1]
+    thing_classes = [k["name"] for k in catt if k["isthing"] == 1]
     ret = {
         "thing_dataset_id_to_contiguous_id": thing_dataset_id_to_contiguous_id,
         "thing_classes": thing_classes,
@@ -239,6 +250,8 @@ def _get_coco_panoptic_separated_meta():
 def _get_builtin_metadata(dataset_name):
     if dataset_name == "coco":
         return _get_coco_instances_meta()
+    if dataset_name == 'cocoshort':
+        return _get_coco_instances_meta(COCO_SHORT_CATEGORIES)
     if dataset_name == "coco_panoptic_separated":
         return _get_coco_panoptic_separated_meta()
     elif dataset_name == "coco_person":
