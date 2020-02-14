@@ -140,17 +140,6 @@ COCO_CATEGORIES = [
     {"color": [250, 141, 255], "isthing": 0, "id": 200, "name": "rug-merged"},
 ]
 
-
-COCO_SHORT_CATEGORIES = [
-    {"color": [220, 20, 60], "isthing": 1, "id": 1, "name": "person"},
-    {"color": [119, 11, 32], "isthing": 1, "id": 2, "name": "bicycle"},
-    {"color": [0, 0, 142], "isthing": 1, "id": 3, "name": "car"},
-    {"color": [0, 0, 230], "isthing": 1, "id": 4, "name": "motorcycle"},
-    {"color": [0, 60, 100], "isthing": 1, "id": 6, "name": "bus"},
-    {"color": [250, 170, 30], "isthing": 1, "id": 10, "name": "traffic light"},
-]
-
-
 # fmt: off
 COCO_PERSON_KEYPOINT_NAMES = (
     "nose",
@@ -164,6 +153,17 @@ COCO_PERSON_KEYPOINT_NAMES = (
     "left_ankle", "right_ankle",
 )
 # fmt: on
+
+
+COCO_SHORT_CATEGORIES = [
+    {"color": [220, 20, 60], "isthing": 1, "id": 1, "name": "person"},
+    {"color": [119, 11, 32], "isthing": 1, "id": 2, "name": "bicycle"},
+    {"color": [0, 0, 142], "isthing": 1, "id": 3, "name": "car"},
+    {"color": [0, 0, 230], "isthing": 1, "id": 4, "name": "motorcycle"},
+    {"color": [0, 60, 100], "isthing": 1, "id": 6, "name": "bus"},
+    {"color": [250, 170, 30], "isthing": 1, "id": 10, "name": "traffic light"},
+]
+
 
 # Pairs of keypoints that should be exchanged under horizontal flipping
 COCO_PERSON_KEYPOINT_FLIP_MAP = (
@@ -250,8 +250,6 @@ def _get_coco_panoptic_separated_meta():
 def _get_builtin_metadata(dataset_name):
     if dataset_name == "coco":
         return _get_coco_instances_meta()
-    if dataset_name == 'cocoshort':
-        return _get_coco_instances_meta(COCO_SHORT_CATEGORIES)
     if dataset_name == "coco_panoptic_separated":
         return _get_coco_panoptic_separated_meta()
     elif dataset_name == "coco_person":
@@ -261,6 +259,15 @@ def _get_builtin_metadata(dataset_name):
             "keypoint_flip_map": COCO_PERSON_KEYPOINT_FLIP_MAP,
             "keypoint_connection_rules": KEYPOINT_CONNECTION_RULES,
         }
+    elif dataset_name == 'coco_person_short':
+        dct1 = _get_coco_instances_meta(COCO_SHORT_CATEGORIES)
+        dct2 = {
+            "keypoint_names": COCO_PERSON_KEYPOINT_NAMES,
+            "keypoint_flip_map": COCO_PERSON_KEYPOINT_FLIP_MAP,
+            "keypoint_connection_rules": KEYPOINT_CONNECTION_RULES,
+        }
+        dct1.update(dct2)
+        return dct1
     elif dataset_name == "cityscapes":
         # fmt: off
         CITYSCAPES_THING_CLASSES = [

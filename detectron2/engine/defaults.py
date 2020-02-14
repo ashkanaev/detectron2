@@ -104,7 +104,7 @@ def default_setup(cfg, args):
     logger.info("Environment info:\n" + collect_env_info())
 
     logger.info("Command line arguments: " + str(args))
-    if hasattr(args, "config_file"):
+    if hasattr(args, "config_file") and args.config_file != "":
         logger.info(
             "Contents of args.config_file={}:\n{}".format(
                 args.config_file, PathManager.open(args.config_file, "r").read()
@@ -135,9 +135,21 @@ class DefaultPredictor:
     The predictor takes an BGR image, resizes it to the specified resolution,
     runs the model and produces a dict of predictions.
 
+    This predictor takes care of model loading and input preprocessing for you.
+    If you'd like to do anything more fancy, please refer to its source code
+    as examples to build and use the model manually.
+
     Attributes:
         metadata (Metadata): the metadata of the underlying dataset, obtained from
             cfg.DATASETS.TEST.
+
+    Examples:
+
+    .. code-block:: python
+
+        pred = DefaultPredictor(cfg)
+        inputs = cv2.imread("input.jpg")
+        outputs = pred(inputs)
     """
 
     def __init__(self, cfg):
@@ -156,7 +168,6 @@ class DefaultPredictor:
         self.input_format = cfg.INPUT.FORMAT
         assert self.input_format in ["RGB", "BGR"], self.input_format
 
-    @torch.no_grad()
     def __call__(self, original_image):
         """
         Args:
@@ -165,17 +176,18 @@ class DefaultPredictor:
         Returns:
             predictions (dict): the output of the model
         """
-        # Apply pre-processing to image.
-        if self.input_format == "RGB":
-            # whether the model expects BGR inputs or RGB
-            original_image = original_image[:, :, ::-1]
-        height, width = original_image.shape[:2]
-        image = self.transform_gen.get_transform(original_image).apply_image(original_image)
-        image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
+        with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
+            # Apply pre-processing to image.
+            if self.input_format == "RGB":
+                # whether the model expects BGR inputs or RGB
+                original_image = original_image[:, :, ::-1]
+            height, width = original_image.shape[:2]
+            image = self.transform_gen.get_transform(original_image).apply_image(original_image)
+            image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
 
-        inputs = {"image": image, "height": height, "width": width}
-        predictions = self.model([inputs])[0]
-        return predictions
+            inputs = {"image": image, "height": height, "width": width}
+            predictions = self.model([inputs])[0]
+            return predictions
 
 
 class DefaultTrainer(SimpleTrainer):
@@ -210,6 +222,14 @@ class DefaultTrainer(SimpleTrainer):
         scheduler:
         checkpointer (DetectionCheckpointer):
         cfg (CfgNode):
+
+    Examples:
+
+    .. code-block:: python
+
+        trainer = DefaultTrainer(cfg)
+        trainer.resume_or_load()  # load last checkpoint or MODEL.WEIGHTS
+        trainer.train()
     """
 
     def __init__(self, cfg):
@@ -217,6 +237,9 @@ class DefaultTrainer(SimpleTrainer):
         Args:
             cfg (CfgNode):
         """
+        logger = logging.getLogger("detectron2")
+        if not logger.isEnabledFor(logging.INFO):  # setup_logger is not called for d2
+            setup_logger()
         # Assume these objects must be constructed in this order.
         model = self.build_model(cfg)
         optimizer = self.build_optimizer(cfg, model)
@@ -415,7 +438,10 @@ class DefaultTrainer(SimpleTrainer):
 
         It is not implemented by default.
         """
-        raise NotImplementedError
+        raise NotImplementedError(
+            "Please either implement `build_evaluator()` in subclasses, or pass "
+            "your evaluator as arguments to `DefaultTrainer.test()`."
+        )
 
     @classmethod
     def test(cls, cfg, model, evaluators=None):
@@ -443,11 +469,18 @@ class DefaultTrainer(SimpleTrainer):
             data_loader = cls.build_test_loader(cfg, dataset_name)
             # When evaluators are passed in as arguments,
             # implicitly assume that evaluators can be created before data_loader.
-            evaluator = (
-                evaluators[idx]
-                if evaluators is not None
-                else cls.build_evaluator(cfg, dataset_name)
-            )
+            if evaluators is not None:
+                evaluator = evaluators[idx]
+            else:
+                try:
+                    evaluator = cls.build_evaluator(cfg, dataset_name)
+                except NotImplementedError:
+                    logger.warn(
+                        "No evaluator found. Use `DefaultTrainer.test(evaluators=)`, "
+                        "or implement its `build_evaluator` method."
+                    )
+                    results[dataset_name] = {}
+                    continue
             results_i = inference_on_dataset(model, data_loader, evaluator)
             results[dataset_name] = results_i
             if comm.is_main_process():

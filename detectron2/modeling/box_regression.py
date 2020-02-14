@@ -56,6 +56,7 @@ class Box2BoxTransform(object):
         target_ctr_x = target_boxes[:, 0] + 0.5 * target_widths
         target_ctr_y = target_boxes[:, 1] + 0.5 * target_heights
 
+
         wx, wy, ww, wh = self.weights
         dx = wx * (target_ctr_x - src_ctr_x) / src_widths
         dy = wy * (target_ctr_y - src_ctr_y) / src_heights
@@ -157,10 +158,7 @@ class Box2BoxTransformRotated(object):
         # Angles of deltas are in radians while angles of boxes are in degrees.
         # the conversion to radians serve as a way to normalize the values
         da = target_angles - src_angles
-        while len(torch.where(da < -180.0)[0]) > 0:
-            da[torch.where(da < -180.0)] += 360.0
-        while len(torch.where(da > 180.0)[0]) > 0:
-            da[torch.where(da > 180.0)] -= 360.0
+        da = (da + 180.0) % 360.0 - 180.0  # make it in [-180, 180)
         da *= wa * math.pi / 180.0
 
         deltas = torch.stack((dx, dy, dw, dh, da), dim=1)
@@ -206,11 +204,7 @@ class Box2BoxTransformRotated(object):
         # Following original RRPN implementation,
         # angles of deltas are in radians while angles of boxes are in degrees.
         pred_angle = da * 180.0 / math.pi + angles
-
-        while len(torch.where(pred_angle < -180.0)[0]) > 0:
-            pred_angle[torch.where(pred_angle < -180.0)] += 360.0
-        while len(torch.where(pred_angle > 180.0)[0]) > 0:
-            pred_angle[torch.where(pred_angle > 180.0)] -= 360.0
+        pred_angle = (pred_angle + 180.0) % 360.0 - 180.0  # make it in [-180, 180)
 
         pred_boxes[:, 4] = pred_angle
 

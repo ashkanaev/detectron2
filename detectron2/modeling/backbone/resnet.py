@@ -29,7 +29,7 @@ __all__ = [
 
 
 class ResNetBlockBase(nn.Module):
-    def __init__(self, in_channels, out_channels, stride, shortcut):
+    def __init__(self, in_channels, out_channels, stride):
         """
         The `__init__` method of any subclass should also contain these arguments.
 
@@ -42,7 +42,6 @@ class ResNetBlockBase(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.stride = stride
-        self.shortcut = shortcut
 
     def freeze(self):
         for p in self.parameters():
@@ -63,7 +62,6 @@ class BottleneckBlock(ResNetBlockBase):
         norm="BN",
         stride_in_1x1=False,
         dilation=1,
-        shortcut=False,
     ):
         """
         Args:
@@ -73,8 +71,9 @@ class BottleneckBlock(ResNetBlockBase):
             stride_in_1x1 (bool): when stride==2, whether to put stride in the
                 first 1x1 convolution or the bottleneck 3x3 convolution.
         """
-        super().__init__(in_channels, out_channels, stride, shortcut=False)
-        if shortcut:
+        super().__init__(in_channels, out_channels, stride)
+
+        if in_channels != out_channels:
             self.shortcut = Conv2d(
                 in_channels,
                 out_channels,
@@ -285,8 +284,7 @@ def make_stage(block_class, num_blocks, first_stride, **kwargs):
     """
     blocks = []
     for i in range(num_blocks):
-        print(kwargs)
-        blocks.append(block_class(stride=first_stride if i == 0 else 1, shortcut=i == 0, **kwargs))
+        blocks.append(block_class(stride=first_stride if i == 0 else 1, **kwargs))
         kwargs["in_channels"] = kwargs["out_channels"]
     return blocks
 
@@ -367,7 +365,7 @@ class ResNet(Backbone):
             # Sec 5.1 in "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour":
             # "The 1000-way fully-connected layer is initialized by
             # drawing weights from a zero-mean Gaussian with standard deviation of 0.01."
-            nn.init.normal_(self.linear.weight, stddev=0.01)
+            nn.init.normal_(self.linear.weight, std=0.01)
             name = "linear"
 
         if out_features is None:
@@ -438,16 +436,10 @@ def build_resnet_backbone(cfg, input_shape):
     deform_on_per_stage = cfg.MODEL.RESNETS.DEFORM_ON_PER_STAGE
     deform_modulated    = cfg.MODEL.RESNETS.DEFORM_MODULATED
     deform_num_groups   = cfg.MODEL.RESNETS.DEFORM_NUM_GROUPS
-
-    channels_per_stage = None
-
-    if cfg.MODEL.RESNETS.CHANNELS_PER_STAGE:
-        channels_per_stage = cfg.MODEL.RESNETS.CHANNELS_PER_STAGE
-
     # fmt: on
     assert res5_dilation in {1, 2}, "res5_dilation cannot be {}.".format(res5_dilation)
 
-    num_blocks_per_stage = {39: [3, 4, 6, 3], 50: [3, 4, 6, 3], 101: [3, 4, 23, 3], 152: [3, 8, 36, 3]}[depth]
+    num_blocks_per_stage = {50: [3, 4, 6, 3], 101: [3, 4, 23, 3], 152: [3, 8, 36, 3]}[depth]
 
     stages = []
 
@@ -458,7 +450,6 @@ def build_resnet_backbone(cfg, input_shape):
     for idx, stage_idx in enumerate(range(2, max_stage_idx + 1)):
         dilation = res5_dilation if stage_idx == 5 else 1
         first_stride = 1 if idx == 0 or (stage_idx == 5 and dilation == 2) else 2
-
         stage_kargs = {
             "num_blocks": num_blocks_per_stage[idx],
             "first_stride": first_stride,
@@ -477,13 +468,9 @@ def build_resnet_backbone(cfg, input_shape):
         else:
             stage_kargs["block_class"] = BottleneckBlock
         blocks = make_stage(**stage_kargs)
-
-        if channels_per_stage:
-            if not channels_per_stage[idx + 1] == channels_per_stage[idx]:
-                bottleneck_channels *= 2
-
         in_channels = out_channels
-        out_channels = channels_per_stage[idx + 1] * 4
+        out_channels *= 2
+        bottleneck_channels *= 2
 
         if freeze_at >= stage_idx:
             for block in blocks:
