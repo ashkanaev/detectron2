@@ -108,6 +108,9 @@ def select_proposals_with_visible_keypoints(proposals):
             & (ys <= proposal_boxes[:, :, 3])
         )
         selection = (kp_in_box & vis_mask).any(dim=1)
+        other_classes = (proposals_per_image.gt_classes != 0) * (proposals_per_image.gt_classes != 6) * (
+                proposals_per_image.gt_classes != 1)
+        selection = selection.type(torch.int) + other_classes.type(torch.int)
         selection_idxs = torch.nonzero(selection).squeeze(1)
         all_num_fg.append(selection_idxs.numel())
         ret.append(proposals_per_image[selection_idxs])
