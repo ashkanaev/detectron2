@@ -146,21 +146,20 @@ class COCOEvaluator(DatasetEvaluator):
         """
         self._logger.info("Preparing results for COCO format ...")
         self._coco_results = list(itertools.chain(*[x["instances"] for x in self._predictions]))
-
+        drop_id = []
         # unmap the category ids for COCO
         if hasattr(self._metadata, "thing_dataset_id_to_contiguous_id"):
             reverse_id_mapping = {
                 v: k for k, v in self._metadata.thing_dataset_id_to_contiguous_id.items()
             }
-            for result in self._coco_results:
+            for id, result in enumerate(self._coco_results):
                 category_id = result["category_id"]
-                assert (
-                    category_id in reverse_id_mapping
-                ), "A prediction has category_id={}, which is not available in the dataset.".format(
-                    category_id
-                )
+                if not category_id in reverse_id_mapping:
+                    drop_id.append(id)
+                    continue
                 result["category_id"] = reverse_id_mapping[category_id]
-
+            for ele in sorted(drop_id, reverse=True):
+                del self._coco_results[ele]
         if self._output_dir:
             file_path = os.path.join(self._output_dir, "coco_instances_results.json")
             self._logger.info("Saving results to {}".format(file_path))
