@@ -3,7 +3,7 @@ SEED: 0
 MODEL:
   ROI_HEADS:
     NUM_CLASSES: 6
-  WEIGHTS: "/home/ashkanaev/models/output_keys_train_5/model_final_wo_solver_states.pth"
+  WEIGHTS: "/media/transfer/shkanaev/detecton_jobs/output_syn_ensemble_keys_0/model_final_wo_solver_states.pth"
   PIXEL_STD: [57.375, 57.120, 58.395]
   RESNETS:
 #    STRIDE_IN_1X1: False  # this is a C2 model
@@ -17,9 +17,10 @@ SOLVER:
   STEPS: (210000, 350000)
 #  STEPS: (10000, 25000)
   WARMUP_ITERS: 10000
+  WARMUP_FACTOR: 1.0
 #  MAX_ITER: 30000
   MAX_ITER: 370000
-  BASE_LR: 0.009
+  BASE_LR: 0.0009
   IMS_PER_BATCH: 12
   CHECKPOINT_PERIOD: 5000
 DATASETS:
@@ -29,4 +30,4 @@ DATASETS:
 DATALOADER:
   NUM_WORKERS: 4
 
-OUTPUT_DIR: './jobs/output_syn_ensemble_keys_0'
+OUTPUT_DIR: './jobs/output_syn_ensemble_keys_1'
